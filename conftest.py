@@ -5,14 +5,16 @@ import random
 import logging
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
+from pathlib import Path
 
 
 def pytest_addoption(parser):
     parser.addoption("--browser", action="store", default="chrome")
-    parser.addoption("--url", action="store", default="local")
+    parser.addoption("--url", action="store", default="localhost")
+    parser.addoption("--opencart_url", action="store", default="https://demo.opencart.com")
     parser.addoption("--drivers", action="store", default=os.path.expanduser("C:/driver"))
     parser.addoption("--log_level", action="store", default="DEBUG")
-    parser.addoption("--bversion", action="store", default="98.0")
+    parser.addoption("--bversion", action="store", default="99.0")
     parser.addoption("--vnc", action="store_true", default=False)
     parser.addoption("--logs", action="store_true", default=False)
     parser.addoption("--videos", action="store_true", default=False)
@@ -22,6 +24,7 @@ def pytest_addoption(parser):
 def browser(request):
     browser = request.config.getoption("--browser")
     executor = request.config.getoption("--url")
+    opencart_url = request.config.getoption("--opencart_url")
     drivers = request.config.getoption("--drivers")
     log_level = request.config.getoption("--log_level")
     version = request.config.getoption("--bversion")
@@ -29,18 +32,7 @@ def browser(request):
     logs = request.config.getoption("--logs")
     videos = request.config.getoption("--videos")
 
-    if executor == "local":
-        if browser == "chrome":
-            wd = webdriver.Chrome(service=Service(drivers + "/chromedriver"))
-        elif browser == "firefox":
-            wd = webdriver.Firefox(service=Service(drivers + "/geckodriver"))
-        elif browser == "opera":
-            wd = webdriver.Opera(service_args=Service(drivers + "/operadriver"))
-        wd.url = "https://demo.opencart.com"
-        wd.maximize_window()
-
-
-    else:
+    if executor == "selenoid" or executor == "localhost":
         executor_url = f"http://{executor}:4444/wd/hub"
 
         caps = {
@@ -61,14 +53,23 @@ def browser(request):
             desired_capabilities=caps
         )
 
-        wd.maximize_window()
 
+    else:
+        if browser == "chrome":
+            wd = webdriver.Chrome(service=Service(drivers + "/chromedriver.exe"))
+        elif browser == "firefox":
+            wd = webdriver.Firefox(service=Service(drivers + "/geckodriver.exe"))
+        elif browser == "opera":
+            wd = webdriver.Opera(service_args=Service(drivers + "/operadriver.exe"))
+
+    wd.url = opencart_url
+    wd.maximize_window()
     wd.get(wd.url)
     logger = logging.getLogger('driver')
 
     test_name = request.node.name
 
-    logger.addHandler(logging.FileHandler(f"logs/{test_name}.log", mode='w'))
+    logger.addHandler(logging.FileHandler(f"{Path(__file__).resolve().parent}/logs/{test_name}.log", mode='w'))
     logger.setLevel(level=log_level)
     logger.info("===> Test {} started at {}".format(test_name, datetime.datetime.now()))
     wd.test_name = test_name
@@ -76,7 +77,7 @@ def browser(request):
     logger.info("Browser:{}".format(browser, wd.capabilities))
 
     def fin():
-        with open('../allure-results/environment.properties', 'w') as f:
+        with open('./allure-results/environment.properties', 'w') as f:
             f.write(f'Browser={browser}\n')
             f.write(f'Browser.Version={version}\n')
             f.write(f'Executor={executor}')

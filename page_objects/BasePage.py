@@ -8,6 +8,7 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support.wait import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.action_chains import ActionChains
+from pathlib import Path
 
 
 class BasePage:
@@ -28,7 +29,8 @@ class BasePage:
 
     def __config_logger(self):
         self.logger = logging.getLogger(type(self).__name__)
-        self.logger.addHandler(logging.FileHandler(f"logs/{self.browser.test_name}.log"))
+        self.logger.addHandler(
+            logging.FileHandler(f"{Path(__file__).resolve().parent.parent}/logs/{self.browser.test_name}.log"))
         self.logger.setLevel(level=self.browser.log_level)
 
     @allure.step("Input text: '{text}'")
